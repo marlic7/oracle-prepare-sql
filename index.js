@@ -5,7 +5,7 @@
  * MIT Licensed
  */
 
-var _ = require('underscore-mixins2');
+var _ = require('lodash');
 
 /**
  * Jeżeli nie ma w projekcie własnej implementacji funckcji Error to używamy implementacji wbudowanej
@@ -254,8 +254,7 @@ var lib = {
      * @private
      */
     prepareInsert: function(tbl, data) {
-        var bind = [],
-            fields = [],
+        var fields = [],
             values = [],
             params = [],
             cnt = 1,
@@ -273,17 +272,16 @@ var lib = {
                 fields.push(key);
                 val = data[key];
 
-                if (_.isEmpty(val) || typeof val != 'object') {
-                    bind.push(val);
+                if(_.get(val, 'type') === 'sequence') {
+                    values.push(val.name + '.NEXTVAL');
+                } else if (_.get(val, 'type') === 'function') {
+                    values.push(val.name + '()');
+                } else if (_.get(val, 'name')) {
+                    values.push(val.name);
+                } else {
                     values.push(':' + cnt);
                     params.push(val);
                     cnt++;
-                } else if (typeof val.type != 'undefined' && val.type == 'sequence') {
-                    values.push(val.name + '.NEXTVAL');
-                } else if (typeof val.type != 'undefined' && val.type == 'function') {
-                    values.push(val.name + '()');
-                } else if (typeof val.name != 'undefined') {
-                    values.push(val.name);
                 }
             });
 

@@ -126,7 +126,8 @@ describe('Test 01 biblioteki PrepareSQL', function() {
         });
     });
 
-    describe('test for prepareInsert', function() {
+    // todo: fix it - test has error becouse order of object keys is not guaranted in JS
+    describe('test for prepareInsert 1', function() {
         var results = ps.prepareInsert('test', {id: null, field_1: 'f1'});
         it('should match sql', function(done) {
             assert.equal(results.sql, 'INSERT INTO test (id, field_1) VALUES (:1, :2)');
@@ -134,6 +135,19 @@ describe('Test 01 biblioteki PrepareSQL', function() {
         });
         it('should match params', function(done) {
             assert.deepEqual(results.params, [null,"f1"]);
+            done();
+        });
+    });
+
+    // todo: fix it - test has error becouse order of object keys is not guaranted in JS
+    describe('test for prepareInsert 2', function() {
+        var results = ps.prepareInsert('test', {id: {type: 'pk'}, field_1: 'f1', field_2: 'f2'});
+        it('should match sql', function(done) {
+            assert.equal(results.sql, 'INSERT INTO test (id, field_1, field_2) VALUES (:1, :2, :3)');
+            done();
+        });
+        it('should match params', function(done) {
+            assert.deepEqual(results.params, [{type: 'pk'},"f1","f2"]);
             done();
         });
     });
