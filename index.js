@@ -1,5 +1,5 @@
 /**
- * Biblioteka do budowania SQL-a dla bazy Oracle na podstawie obiektu parametrów
+ * Library for building SQL queries for Oracle DB based on given parameters
  *
  * Copyright(c) 2015 Mariusz Lichota
  * MIT Licensed
@@ -8,14 +8,14 @@
 var _ = require('lodash');
 
 /**
- * Jeżeli nie ma w projekcie własnej implementacji funckcji Error to używamy implementacji wbudowanej
+ * If there isn't own MyError then use standard Error handler
  */
 if(typeof MyError === 'undefined') MyError = Error;
 
 var lib = {
 
     /**
-     * Przygotowanie kompletnego warunku WHERE dla polecenia SQL
+     * Prepare WHERE clouse for SQL
      *
      * @param {Array|Object} where [
      *                          ['field LIKE ?', '%ola%'], // operator AND is default
@@ -29,7 +29,7 @@ var lib = {
      *                          }
      *                      ]
      *                      where {field1: 123, field2: 'abc'}
-     * @param {Array} [params] - parametry bindowania [opcjonalne]
+     * @param {Array} [params] - bind parameters [optional]
      * @returns {Object} {sql: '', params: []}
      * @private
      */
@@ -51,7 +51,7 @@ var lib = {
 
             if (!_.isArray(where)) {
                 //noinspection ExceptionCaughtLocallyJS
-                throw new Error('Parametr "where" musi być tablicą warunków!');
+                throw new Error('Parameter "where" must be an array of conditions!');
             }
 
             var sql = '(';
@@ -105,15 +105,15 @@ var lib = {
      * @returns {{sql: string, params: Array}}
      * @private
      */
-    prepareQuery: function(tbl, fields, where, order, limit, page, totalCount) {
+    prepareQuery: function(tbl, fields, where, order, limit, page, totalCount, dbVer = '11') {
         try {
             var sql, params = [], fld, ord = [];
 
-            // todo-me: test fields na sql injection
+            // todo-me: test fields for sql injection
 
             var wh = lib.prepareWhere(where, params);
 
-            // todo-me: test na sql injection
+            // todo-me: test for sql injection
             if(order) {
                 if(_.isArray(order) && order.length > 0) {
                     _.each(order, function (val, i) {
@@ -129,8 +129,9 @@ var lib = {
                 }
             }
 
+            fld = (!fields ? '*' : fields.join(', '));
+
             if(typeof limit === 'undefined') {
-                fld = (!fields ? '*' : fields.join(', '));
                 // simple SQL
                 sql = 'SELECT ' + fld + ' FROM ' + tbl +
                       (wh.sql ? ' WHERE ' + wh.sql : '') +
@@ -139,68 +140,76 @@ var lib = {
                 // prevent sql injection
                 if(limit != Number(limit)) {
                     //noinspection ExceptionCaughtLocallyJS
-                    throw new MyError('Parametr limit nie jest typu numerycznego!', { limit: limit });
+                    throw new MyError('Parameter limit is not integer type!', { limit: limit });
                 }
                 if(page) {
                     if(page != Number(page)) {
                         //noinspection ExceptionCaughtLocallyJS
-                        throw new MyError('Parametr page nie jest typu numerycznego!', { page: page });
+                        throw new MyError('Parameter page is not integer type!', { page: page });
                     }
                 } else {
                     page = 1;
                 }
 
-                // jeżeli nie ma order lub w order nie ma pola ID to dodaj ROWID do order (uniknięcie pływających rekordów pomiędzy stronami)
-                if(!order) {
-                    ord = ['rowid'];
+                if (dbVer >= '12') {
+                    let offset = (page - 1) * limit,
+                        where = (wh.sql ? 'WHERE ' + wh.sql : ''),
+                        tc = (totalCount ? ', Count(1) OVER () AS cnt__' : ''),
+                        orderBy = (order ? 'ORDER BY ' + ord.join(', ') : '');
+                    sql = `SELECT ${fld}${tc} FROM ${tbl} ${where} ${orderBy} OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
                 } else {
-                    var test = ord.join(' ') + ' ';
-                    if(!test.match(/\s+id\s+/i)) {
-                        ord.push('rowid');
+                    // jeżeli nie ma order lub w order nie ma pola ID to dodaj ROWID do order (uniknięcie pływających rekordów pomiędzy stronami)
+                    if(!order) {
+                        ord = ['rowid'];
+                    } else {
+                        var test = ord.join(' ') + ' ';
+                        if(!test.match(/\s+id\s+/i)) {
+                            ord.push('rowid');
+                        }
                     }
+
+                    if(!fields) {
+                        fld = 't.*';
+                    } else {
+                        var fldArr = [];
+                        fields.forEach(function(itm) {
+                            fldArr.push('t.' + itm);
+                        });
+                        fld = fldArr.join(', ');
+                    }
+
+                    var sqlArr = [
+                        'SELECT ' + fld + ', i.rn__' + (totalCount ? ', i.cnt__' : ''),
+                        'FROM   (',
+                        '          SELECT i.*',
+                        '          FROM   (',
+                        '                    SELECT i.*, ROWNUM AS rn__',
+                        '                    FROM   (',
+                        '                              SELECT ROWID              AS rid__',
+                        (totalCount ? '                                     , Count(1) OVER () AS cnt__' : ''),
+                        '                              FROM   ' + tbl,
+                        '                              ' + (wh.sql ? 'WHERE  ' + wh.sql : ''),
+                        '                              ORDER  BY ' + ord.join(', '),
+                        '                           ) i',
+                        '                    WHERE  ROWNUM <= :P_LAST_ROW',
+                        '                 ) i',
+                        '          WHERE  rn__ >= :P_FIRST_ROW',
+                        '       ) i,',
+                        '       ' + tbl + ' t',
+                        'WHERE  i.rid__ = t.ROWID',
+                        'ORDER  BY rn__'
+                    ];
+
+                    params.push(page * limit);
+                    params.push((page - 1) * limit + 1);
+
+                    sql = sqlArr.join('\n');
                 }
-
-                if(!fields) {
-                    fld = 't.*';
-                } else {
-                    var fldArr = [];
-                    fields.forEach(function(itm) {
-                        fldArr.push('t.' + itm);
-                    });
-                    fld = fldArr.join(', ');
-                }
-
-                var sqlArr = [
-                    'SELECT ' + fld + ', i.rn__' + (totalCount ? ', i.cnt__' : ''),
-                    'FROM   (',
-                    '          SELECT i.*',
-                    '          FROM   (',
-                    '                    SELECT i.*, ROWNUM AS rn__',
-                    '                    FROM   (',
-                    '                              SELECT ROWID              AS rid__',
-                    (totalCount ? '                                     , Count(1) OVER () AS cnt__' : ''),
-                    '                              FROM   ' + tbl,
-                    '                              ' + (wh.sql ? 'WHERE  ' + wh.sql : ''),
-                    '                              ORDER  BY ' + ord.join(', '),
-                    '                           ) i',
-                    '                    WHERE  ROWNUM <= :P_LAST_ROW',
-                    '                 ) i',
-                    '          WHERE  rn__ >= :P_FIRST_ROW',
-                    '       ) i,',
-                    '       ' + tbl + ' t',
-                    'WHERE  i.rid__ = t.ROWID',
-                    'ORDER  BY rn__'
-                ];
-
-                params.push(page * limit);
-                params.push((page - 1) * limit + 1);
-
-                sql = sqlArr.join('\n');
             }
 
             return {sql: sql, params: params};
         } catch (e) {
-            throw new MyError(e, {tbl: tbl, fields: fields, where: where, order: order});
+            throw new MyError(e, { tbl, fields, where, order });
         }
     },
 
@@ -215,7 +224,7 @@ var lib = {
         try {
             if(typeof data != 'object') {
                 //noinspection ExceptionCaughtLocallyJS
-                throw new Error('Drugi parametr musi być obiektem typu {field1: "value1", field2: "value2"}!');
+                throw new Error('Second parameter must be an object eg. {field1: "value1", field2: "value2"}!');
             }
 
             var sql, params = [], i = 1, upd = [];
@@ -232,7 +241,7 @@ var lib = {
 
             if(upd.length === 0) {
                 //noinspection ExceptionCaughtLocallyJS
-                throw new MyError('Brak pól do aktualizacji!', {tbl:tbl, data:data, where:where});
+                throw new MyError('Missing fields for update!', {tbl:tbl, data:data, where:where});
             }
 
             sql = 'UPDATE ' + tbl + ' SET ' + upd.join(', ');
@@ -263,7 +272,7 @@ var lib = {
         try {
             if (typeof data != 'object') {
                 //noinspection ExceptionCaughtLocallyJS
-                throw new MyError('Drugi parametr musi być obiektem typu {field1: "value1", field2: "value2"}!', {
+                throw new MyError('Second parameter must be an object eg. {field1: "value1", field2: "value2"}!', {
                     data: data
                 });
             }
@@ -295,7 +304,7 @@ var lib = {
     },
 
     /**
-     * Przygotowanie polecenia SQL do usuwania tabeli
+     * Prepare SQL for delete data from table
      *
      * @param tbl
      * @param where

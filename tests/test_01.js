@@ -90,7 +90,7 @@ describe('Test 01 biblioteki PrepareSQL', function() {
         });
     });
 
-    describe('test for prepareQuery complex with limit', function() {
+    describe('test for prepareQuery complex with limit for oracle < 12', function() {
         var results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], ['field3 >= ?', 100], ['field2', ['field3', 'DESC']], 10, 2);
         it('should match sql', function(done) {
             assert.equal(results.sql, 'SELECT t.field1, t.field2 AS alias, i.rn__\nFROM   (\n          SELECT i.*\n          FROM   (\n                    SELECT i.*, ROWNUM AS rn__\n                    FROM   (\n                              SELECT ROWID              AS rid__\n\n                              FROM   test\n                              WHERE  (field3 >= :1)\n                              ORDER  BY field2, field3 DESC, rowid\n                           ) i\n                    WHERE  ROWNUM <= :P_LAST_ROW\n                 ) i\n          WHERE  rn__ >= :P_FIRST_ROW\n       ) i,\n       test t\nWHERE  i.rid__ = t.ROWID\nORDER  BY rn__');
@@ -110,6 +110,18 @@ describe('Test 01 biblioteki PrepareSQL', function() {
         });
         it('should match params', function(done) {
             assert.deepEqual(results.params, [100, 20, 11]);
+            done();
+        });
+    });
+
+    describe('test for prepareQuery complex with limit and totalCount for oracle >= 12', function() {
+        var results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], ['field3 >= ?', 100], ['field2', ['field3', 'DESC']], 10, 2, true, '12');
+        it('should match sql', function(done) {
+            assert.equal(results.sql, 'SELECT field1, field2 AS alias, Count(1) OVER () AS cnt__ FROM test WHERE (field3 >= :1) ORDER BY field2, field3 DESC OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY');
+            done();
+        });
+        it('should match params', function(done) {
+            assert.deepEqual(results.params, [100]);
             done();
         });
     });
