@@ -55,9 +55,9 @@ describe('Test 01 biblioteki PrepareSQL', function() {
     });
 
     describe('test for prepareQuery simple', function() {
-        var results = ps.prepareQuery('a.basic');
+        var results = ps.prepareQuery('basic');
         it('should match sql', function(done) {
-            assert.equal(results.sql, 'SELECT * FROM a.basic');
+            assert.equal(results.sql.trim(), 'SELECT t.* FROM basic t');
             done();
         });
         it('should match params', function(done) {
@@ -69,7 +69,7 @@ describe('Test 01 biblioteki PrepareSQL', function() {
     describe('test for prepareQuery complex', function() {
         var results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], ['field3 >= ?', 100], ['field2', ['field3', 'DESC']]);
         it('should match sql', function(done) {
-            assert.equal(results.sql, 'SELECT field1, field2 AS alias FROM test WHERE (field3 >= :1) ORDER BY field2, field3 DESC');
+            assert.equal(results.sql, 'SELECT field1, field2 AS alias FROM test t WHERE (field3 >= :1) ORDER BY field2, field3 DESC');
             done();
         });
         it('should match params', function(done) {
@@ -81,7 +81,7 @@ describe('Test 01 biblioteki PrepareSQL', function() {
     describe('test for prepareQuery complex 2nd version', function() {
         var results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], { field3: 100, field4: 'abc' }, ['field2', ['field3', 'DESC']]);
         it('should match sql', function(done) {
-            assert.equal(results.sql, 'SELECT field1, field2 AS alias FROM test WHERE (field3 = :1 AND field4 = :2) ORDER BY field2, field3 DESC');
+            assert.equal(results.sql, 'SELECT field1, field2 AS alias FROM test t WHERE (field3 = :1 AND field4 = :2) ORDER BY field2, field3 DESC');
             done();
         });
         it('should match params', function(done) {

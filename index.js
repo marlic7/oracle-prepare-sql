@@ -102,16 +102,24 @@ var lib = {
      * @param {Number} [limit]
      * @param {Number} [page]
      * @param {Boolean} [totalCount]
+     * @param {String} [dbVer]
      * @returns {{sql: string, params: Array}}
      * @private
      */
     prepareQuery: function(tbl, fields, where, order, limit, page, totalCount, dbVer = '11') {
         try {
-            var sql, params = [], fld, ord = [];
+            let sql, params = [],
+                fld  = (!fields ? '*' : fields.join(', ')),
+                fld2 = (!fields ? 't.*' : fields.join(', ')),
+                tc = (totalCount ? ', Count(1) OVER () AS cnt__' : ''),
+                where2,
+                orderBy = '',
+                ord = [];
 
             // todo-me: test fields for sql injection
+            let wh = lib.prepareWhere(where, params);
 
-            var wh = lib.prepareWhere(where, params);
+            where2 = (wh.sql ? 'WHERE ' + wh.sql : '');
 
             // todo-me: test for sql injection
             if(order) {
@@ -127,15 +135,12 @@ var lib = {
                 } else if (typeof order === 'string') {
                     ord = [order];
                 }
+                orderBy = 'ORDER BY ' + ord.join(', ');
             }
-
-            fld = (!fields ? '*' : fields.join(', '));
 
             if(typeof limit === 'undefined') {
                 // simple SQL
-                sql = 'SELECT ' + fld + ' FROM ' + tbl +
-                      (wh.sql ? ' WHERE ' + wh.sql : '') +
-                      (order  ? ' ORDER BY ' + ord.join(', ') : '');
+                sql = `SELECT ${fld2}${tc} FROM ${tbl} t ${where2} ${orderBy}`;
             } else {
                 // prevent sql injection
                 if(limit != Number(limit)) {
@@ -152,13 +157,12 @@ var lib = {
                 }
 
                 if (dbVer >= '12') {
-                    let offset = (page - 1) * limit,
-                        where = (wh.sql ? 'WHERE ' + wh.sql : ''),
-                        tc = (totalCount ? ', Count(1) OVER () AS cnt__' : ''),
-                        orderBy = (order ? 'ORDER BY ' + ord.join(', ') : '');
-                    sql = `SELECT ${fld}${tc} FROM ${tbl} ${where} ${orderBy} OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+                    let offset = (page - 1) * limit;
+
+                    sql = `SELECT ${fld}${tc} FROM ${tbl} ${where2} ${orderBy} OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
                 } else {
-                    // jeżeli nie ma order lub w order nie ma pola ID to dodaj ROWID do order (uniknięcie pływających rekordów pomiędzy stronami)
+                    // when missing order or missing ID in order array then add ROWID to order array (prevent floating records between pages)
+                    // Attention! this might not work with some types of views (eg. Oracle dictionary views) at the moment I have no idea how to do this better
                     if(!order) {
                         ord = ['rowid'];
                     } else {
@@ -171,7 +175,7 @@ var lib = {
                     if(!fields) {
                         fld = 't.*';
                     } else {
-                        var fldArr = [];
+                        let fldArr = [];
                         fields.forEach(function(itm) {
                             fldArr.push('t.' + itm);
                         });
@@ -207,7 +211,7 @@ var lib = {
                 }
             }
 
-            return {sql: sql, params: params};
+            return { sql: sql, params: params };
         } catch (e) {
             throw new MyError(e, { tbl, fields, where, order });
         }

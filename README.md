@@ -1,4 +1,5 @@
 # oracle-prepare-sql
 
-Biblioteka do budowania SQL-a dla bazy Oracle na podstawie obiektu parametrów.
-Zobacz testy.
+Utility library to build SQL for Oracle database based on the parameter object.
+
+Please see tests.
