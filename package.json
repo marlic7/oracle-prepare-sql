@@ -1,6 +1,6 @@
 {
   "name": "oracle-prepare-sql",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Utility library to build SQL for Oracle database based on the parameter object.",
   "main": "index.js",
   "scripts": {

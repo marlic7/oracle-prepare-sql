@@ -117,7 +117,7 @@ describe('Test 01 biblioteki PrepareSQL', function() {
     describe('test for prepareQuery complex with limit and totalCount for oracle >= 12', function() {
         var results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], ['field3 >= ?', 100], ['field2', ['field3', 'DESC']], 10, 2, true, '12');
         it('should match sql', function(done) {
-            assert.equal(results.sql, 'SELECT field1, field2 AS alias, Count(1) OVER () AS cnt__ FROM test WHERE (field3 >= :1) ORDER BY field2, field3 DESC OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY');
+            assert.equal(results.sql, 'SELECT field1, field2 AS alias, Count(1) OVER () AS cnt__ FROM test t WHERE (field3 >= :1) ORDER BY field2, field3 DESC OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY');
             done();
         });
         it('should match params', function(done) {

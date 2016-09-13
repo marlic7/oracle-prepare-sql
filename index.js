@@ -159,7 +159,7 @@ var lib = {
                 if (dbVer >= '12') {
                     let offset = (page - 1) * limit;
 
-                    sql = `SELECT ${fld}${tc} FROM ${tbl} ${where2} ${orderBy} OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+                    sql = `SELECT ${fld2}${tc} FROM ${tbl} t ${where2} ${orderBy} OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
                 } else {
                     // when missing order or missing ID in order array then add ROWID to order array (prevent floating records between pages)
                     // Attention! this might not work with some types of views (eg. Oracle dictionary views) at the moment I have no idea how to do this better
