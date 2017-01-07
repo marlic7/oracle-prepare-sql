@@ -1,3 +1,5 @@
+"use strict";
+
 /**
  * Library for building SQL queries for Oracle DB based on given parameters
  *
@@ -5,14 +7,14 @@
  * MIT Licensed
  */
 
-var _ = require('lodash');
+const _ = require('lodash');
 
 /**
  * If there isn't own MyError then use standard Error handler
  */
-if(typeof MyError === 'undefined') MyError = Error;
+if(typeof global.MyError === 'undefined') global.MyError = Error;
 
-var lib = {
+const lib = {
 
     /**
      * Prepare WHERE clouse for SQL
@@ -30,15 +32,16 @@ var lib = {
      *                      ]
      *                      where {field1: 123, field2: 'abc'}
      * @param {Array} [params] - bind parameters [optional]
+     * @param {string} ctx - current context
      * @returns {Object} {sql: '', params: []}
      * @private
      */
-    prepareWhere: function(where, params) {
+    prepareWhere: function(where, params, ctx = 'main') {
         params = params || [];
 
         try {
             if(_.isObject(where) && !_.isArray(where) && !_.isFunction(where)) {
-                var where2 = [];
+                const where2 = [];
                 _.each(where, function(v, k) {
                     where2.push([k + ' = ?', v]);
                 });
@@ -54,42 +57,40 @@ var lib = {
                 throw new Error('Parameter "where" must be an array of conditions!');
             }
 
-            var sql = '(';
+            let sql = '(';
 
             if (where.length === 2 && typeof where[0] === 'string') {
                 sql += where[0].replace(/\?/g, function () {
-                    var idx = params.length + 1;
+                    const idx = params.length + 1;
                     params.push(where[1]);
                     return ':' + idx;
                 });
             } else {
-
                 _.each(where, function (v, i) {
                     if (typeof v === 'string') {
                         sql += (i === 0 ? '' : ' AND ') + v;
                     } else if (_.isArray(v) && v.length > 0) {
-                        var p = (typeof v[1] !== 'undefined' ? (_.isArray(v[1]) ? v[1] : [v[1]]) : null);
-                        var ii = 0;
+                        const p = (typeof v[1] !== 'undefined' ? (_.isArray(v[1]) ? v[1] : [v[1]]) : null);
+                        let ii = 0;
                         sql += (i === 0 ? '' : (v[2] ? ' ' + v[2] + ' ' : ' AND '));
                         sql += v[0].replace(/\?/g, function () {
-                            var idx = params.length + 1;
+                            const idx = params.length + 1;
                             params.push(p[ii]);
                             ii++;
                             return ':' + idx;
                         });
                     } else if (typeof v === 'object') {
-                        var out = lib.prepareWhere(v.nested, params);
-                        sql += ' ' + (v.type ? v.type : 'AND') + ' ' + out.sql;
+                        const out = lib.prepareWhere(v.nested, params, 'nested');
+                        sql += (ctx === 'nested' ? '' : ' ' + (v.type ? v.type : 'AND') + ' ') + out.sql;
                     }
                 });
             }
 
             sql += ')';
 
-            return { sql: sql, params: params };
-
+            return { sql, params };
         } catch (e) {
-            throw new MyError(e, {where: where, params: params});
+            throw new MyError(e, {where, params});
         }
     },
 
@@ -116,12 +117,10 @@ var lib = {
                 orderBy = '',
                 ord = [];
 
-            // todo-me: test fields for sql injection
             let wh = lib.prepareWhere(where, params);
 
             where2 = (wh.sql ? 'WHERE ' + wh.sql : '');
 
-            // todo-me: test for sql injection
             if(order) {
                 if(_.isArray(order) && order.length > 0) {
                     _.each(order, function (val, i) {
@@ -166,7 +165,7 @@ var lib = {
                     if(!order) {
                         ord = ['rowid'];
                     } else {
-                        var test = ord.join(' ') + ' ';
+                        const test = ord.join(' ') + ' ';
                         if(!test.match(/\s+id\s+/i)) {
                             ord.push('rowid');
                         }
@@ -182,7 +181,7 @@ var lib = {
                         fld = fldArr.join(', ');
                     }
 
-                    var sqlArr = [
+                    const sqlArr = [
                         'SELECT ' + fld + ', i.rn__' + (totalCount ? ', i.cnt__' : ''),
                         'FROM   (',
                         '          SELECT i.*',
@@ -211,7 +210,7 @@ var lib = {
                 }
             }
 
-            return { sql: sql, params: params };
+            return { sql: sql.trim(), params };
         } catch (e) {
             throw new MyError(e, { tbl, fields, where, order });
         }
@@ -231,7 +230,8 @@ var lib = {
                 throw new Error('Second parameter must be an object eg. {field1: "value1", field2: "value2"}!');
             }
 
-            var sql, params = [], i = 1, upd = [];
+            const params = [], upd = [];
+            let sql, i = 1;
 
             _.each(data, function (val, key) {
                 if(val !== null & typeof val === 'object' && typeof val.name != 'undefined') {
@@ -250,10 +250,10 @@ var lib = {
 
             sql = 'UPDATE ' + tbl + ' SET ' + upd.join(', ');
 
-            var wh = lib.prepareWhere(where, params);
+            const wh = lib.prepareWhere(where, params);
             sql += (wh.sql ? ' WHERE ' + wh.sql : '');
 
-            return { sql: sql, params: params };
+            return { sql: sql.trim(), params };
         } catch (e) {
             throw new MyError(e, {tbl: tbl, data: data, where: where});
         }
@@ -267,11 +267,13 @@ var lib = {
      * @private
      */
     prepareInsert: function(tbl, data) {
-        var fields = [],
+        const
+            fields = [],
             values = [],
-            params = [],
-            cnt = 1,
-            sql;
+            params = [];
+
+        let sql,
+            cnt = 1;
 
         try {
             if (typeof data != 'object') {
@@ -300,7 +302,7 @@ var lib = {
 
             sql = "INSERT INTO " + tbl + " (" + fields.join(', ') + ") VALUES (" + values.join(', ') + ")";
 
-            return { sql: sql, params: params };
+            return { sql: sql.trim(), params };
 
         } catch (e) {
             throw new MyError(e, {tbl: tbl, data: data});
@@ -316,14 +318,15 @@ var lib = {
      */
     prepareDelete: function(tbl, where) {
         try {
-            var sql, wh, params = [];
+            const params = [];
+            let sql, wh;
 
             sql = 'DELETE FROM ' + tbl;
 
             wh = lib.prepareWhere(where, params);
             sql += (wh.sql ? ' WHERE ' + wh.sql : '');
 
-            return {sql: sql, params: wh.params};
+            return {sql: sql.trim(), params: wh.params};
         } catch (e) {
             throw new MyError(e, {tbl: tbl, where: where});
         }
@@ -331,7 +334,7 @@ var lib = {
 
 };
 
-var pub = {
+const pub = {
     prepareWhere:  lib.prepareWhere,
     prepareQuery:  lib.prepareQuery,
     prepareUpdate: lib.prepareUpdate,

@@ -1,10 +1,13 @@
 {
   "name": "oracle-prepare-sql",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Utility library to build SQL for Oracle database based on the parameter object.",
   "main": "index.js",
   "scripts": {
     "test": "mocha ./tests/ --reporter=spec --timeout 150000"
+  },
+  "engines": {
+    "node": ">=6"
   },
   "author": "Mariusz Lichota",
   "license": "MIT",
@@ -13,7 +16,7 @@
     "url": "https://github.com/marlic7/oracle-prepare-sql.git"
   },
   "dependencies": {
-    "lodash": "^4.15.0"
+    "lodash": "^4.17.4"
   },
   "devDependencies": {}
 }
