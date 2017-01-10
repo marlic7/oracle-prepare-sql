@@ -36,6 +36,40 @@ describe('Test 01 biblioteki PrepareSQL', () => {
         });
     });
 
+    describe('test for prepareWhere with multiple bind params', () => {
+        const where = [
+            ['1=1'],
+            ['field1 LIKE ?', '%ola%'],
+            ['(field2 > ? OR field3 > ?)', [10, 100]]
+        ];
+        const results = ps.prepareWhere(where);
+
+        it('should match sql', () => {
+            assert.equal(results.sql, '(1=1 AND field1 LIKE :1 AND (field2 > :2 OR field3 > :3))');
+        });
+        it('should match params', () => {
+            assert.deepEqual(results.params, [ '%ola%', 10, 100 ]);
+        });
+    });
+
+    describe('test for prepareWhere with multiple bind params and different paceholders types', () => {
+        const where = [
+            [ "fld1 = ?", 3],
+            [
+                "fld2 = ANY (SELECT fld2 FROM c WHERE fld3 = :1 AND fld4 = :2)",
+                [ 4, 1 ]
+            ]
+        ];
+        const results = ps.prepareWhere(where);
+
+        it('should match sql', () => {
+            assert.equal(results.sql, '(fld1 = :1 AND fld2 = ANY (SELECT fld2 FROM c WHERE fld3 = :2 AND fld4 = :3))');
+        });
+        it('should match params', () => {
+            assert.deepEqual(results.params, [ 3, 4, 1 ]);
+        });
+    });
+
     describe('test for prepareWhere with more complex args', () => {
         const where = [
             ["field_1 = ?", 2],

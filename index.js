@@ -60,7 +60,7 @@ const lib = {
             let sql = '(';
 
             if (where.length === 2 && typeof where[0] === 'string') {
-                sql += where[0].replace(/\?/g, function () {
+                sql += where[0].replace(/(\?|:\d+)/g, function () {
                     const idx = params.length + 1;
                     params.push(where[1]);
                     return ':' + idx;
@@ -73,7 +73,7 @@ const lib = {
                         const p = (typeof v[1] !== 'undefined' ? (_.isArray(v[1]) ? v[1] : [v[1]]) : null);
                         let ii = 0;
                         sql += (i === 0 ? '' : (v[2] ? ' ' + v[2] + ' ' : ' AND '));
-                        sql += v[0].replace(/\?/g, function () {
+                        sql += v[0].replace(/(\?|:\d+)/g, function () {
                             const idx = params.length + 1;
                             params.push(p[ii]);
                             ii++;
