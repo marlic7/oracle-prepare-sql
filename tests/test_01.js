@@ -100,7 +100,7 @@ describe('Test 01 biblioteki PrepareSQL', () => {
     describe('test for prepareUpdate', () => {
         const results = ps.prepareUpdate('test', {field1: 'wart1', field2: 2}, [['id = ?', 10]]);
         it('should match sql', () => {
-            assert.equal(results.sql, 'UPDATE test SET field1 = :1, field2 = :2 WHERE (id = :3)');
+            assert.equal(results.sql, 'UPDATE test a SET field1 = :1, field2 = :2 WHERE (id = :3)');
         });
         it('should match params', () => {
             assert.deepEqual(results.params, [ 'wart1', 2, 10 ] );
@@ -110,7 +110,7 @@ describe('Test 01 biblioteki PrepareSQL', () => {
     describe('test for prepareQuery simple', () => {
         const results = ps.prepareQuery('basic');
         it('should match sql', () => {
-            assert.equal(results.sql.trim(), 'SELECT t.* FROM basic t');
+            assert.equal(results.sql.trim(), 'SELECT a.* FROM basic a');
         });
         it('should match params', () => {
             assert.deepEqual(results.params, []);
@@ -120,14 +120,14 @@ describe('Test 01 biblioteki PrepareSQL', () => {
     describe('test for prepareQuery with simple subquery', () => {
         const results = ps.prepareQuery('test', null, ['field_1 = ANY (SELECT field_x FROM test2 WHERE field_y = t.field_2)']);
         it('should match sql', () => {
-            assert.equal(results.sql, 'SELECT t.* FROM test t WHERE (field_1 = ANY (SELECT field_x FROM test2 WHERE field_y = t.field_2))');
+            assert.equal(results.sql, 'SELECT a.* FROM test a WHERE (field_1 = ANY (SELECT field_x FROM test2 WHERE field_y = t.field_2))');
         });
     });
 
     describe('test for prepareQuery complex', () => {
         const results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], ['field3 >= ?', 100], ['field2', ['field3', 'DESC']]);
         it('should match sql', () => {
-            assert.equal(results.sql, 'SELECT field1, field2 AS alias FROM test t WHERE (field3 >= :1) ORDER BY field2, field3 DESC');
+            assert.equal(results.sql, 'SELECT field1, field2 AS alias FROM test a WHERE (field3 >= :1) ORDER BY field2, field3 DESC');
         });
         it('should match params', () => {
             assert.deepEqual(results.params, [ 100 ] );
@@ -137,7 +137,7 @@ describe('Test 01 biblioteki PrepareSQL', () => {
     describe('test for prepareQuery complex 2nd version', () => {
         const results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], { field3: 100, field4: 'abc' }, ['field2', ['field3', 'DESC']]);
         it('should match sql', () => {
-            assert.equal(results.sql, 'SELECT field1, field2 AS alias FROM test t WHERE (field3 = :1 AND field4 = :2) ORDER BY field2, field3 DESC');
+            assert.equal(results.sql, 'SELECT field1, field2 AS alias FROM test a WHERE (field3 = :1 AND field4 = :2) ORDER BY field2, field3 DESC');
         });
         it('should match params', () => {
             assert.deepEqual(results.params, [ 100, 'abc' ] );
@@ -147,7 +147,7 @@ describe('Test 01 biblioteki PrepareSQL', () => {
     describe('test for prepareQuery complex with limit for oracle < 12', () => {
         const results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], ['field3 >= ?', 100], ['field2', ['field3', 'DESC']], 10, 2);
         it('should match sql', () => {
-            assert.equal(results.sql, 'SELECT t.field1, t.field2 AS alias, i.rn__\nFROM   (\n          SELECT i.*\n          FROM   (\n                    SELECT i.*, ROWNUM AS rn__\n                    FROM   (\n                              SELECT ROWID              AS rid__\n\n                              FROM   test\n                              WHERE  (field3 >= :1)\n                              ORDER  BY field2, field3 DESC, rowid\n                           ) i\n                    WHERE  ROWNUM <= :P_LAST_ROW\n                 ) i\n          WHERE  rn__ >= :P_FIRST_ROW\n       ) i,\n       test t\nWHERE  i.rid__ = t.ROWID\nORDER  BY rn__');
+            assert.equal(results.sql, 'SELECT t.field1, t.field2 AS alias, i.rn__\nFROM   (\n          SELECT i.*\n          FROM   (\n                    SELECT i.*, ROWNUM AS rn__\n                    FROM   (\n                              SELECT ROWID              AS rid__\n\n                              FROM   test a\n                              WHERE  (field3 >= :1)\n                              ORDER  BY field2, field3 DESC, rowid\n                           ) i\n                    WHERE  ROWNUM <= :P_LAST_ROW\n                 ) i\n          WHERE  rn__ >= :P_FIRST_ROW\n       ) i,\n       test t\nWHERE  i.rid__ = t.ROWID\nORDER  BY rn__');
         });
         it('should match params', () => {
             assert.deepEqual(results.params, [100, 20, 11]);
@@ -157,7 +157,7 @@ describe('Test 01 biblioteki PrepareSQL', () => {
     describe('test for prepareQuery complex with limit and totalCount', () => {
         const results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], ['field3 >= ?', 100], ['field2', ['field3', 'DESC']], 10, 2, true);
         it('should match sql', () => {
-            assert.equal(results.sql, 'SELECT t.field1, t.field2 AS alias, i.rn__, i.cnt__\nFROM   (\n          SELECT i.*\n          FROM   (\n                    SELECT i.*, ROWNUM AS rn__\n                    FROM   (\n                              SELECT ROWID              AS rid__\n                                     , Count(1) OVER () AS cnt__\n                              FROM   test\n                              WHERE  (field3 >= :1)\n                              ORDER  BY field2, field3 DESC, rowid\n                           ) i\n                    WHERE  ROWNUM <= :P_LAST_ROW\n                 ) i\n          WHERE  rn__ >= :P_FIRST_ROW\n       ) i,\n       test t\nWHERE  i.rid__ = t.ROWID\nORDER  BY rn__');
+            assert.equal(results.sql, 'SELECT t.field1, t.field2 AS alias, i.rn__, i.cnt__\nFROM   (\n          SELECT i.*\n          FROM   (\n                    SELECT i.*, ROWNUM AS rn__\n                    FROM   (\n                              SELECT ROWID              AS rid__\n                                     , Count(1) OVER () AS cnt__\n                              FROM   test a\n                              WHERE  (field3 >= :1)\n                              ORDER  BY field2, field3 DESC, rowid\n                           ) i\n                    WHERE  ROWNUM <= :P_LAST_ROW\n                 ) i\n          WHERE  rn__ >= :P_FIRST_ROW\n       ) i,\n       test t\nWHERE  i.rid__ = t.ROWID\nORDER  BY rn__');
         });
         it('should match params', () => {
             assert.deepEqual(results.params, [100, 20, 11]);
@@ -167,7 +167,7 @@ describe('Test 01 biblioteki PrepareSQL', () => {
     describe('test for prepareQuery complex with limit and totalCount for oracle >= 12', () => {
         const results = ps.prepareQuery('test', ['field1', 'field2 AS alias'], ['field3 >= ?', 100], ['field2', ['field3', 'DESC']], 10, 2, true, '12');
         it('should match sql', () => {
-            assert.equal(results.sql, 'SELECT field1, field2 AS alias, Count(1) OVER () AS cnt__ FROM test t WHERE (field3 >= :1) ORDER BY field2, field3 DESC OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY');
+            assert.equal(results.sql, 'SELECT field1, field2 AS alias, Count(1) OVER () AS cnt__ FROM test a WHERE (field3 >= :1) ORDER BY field2, field3 DESC OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY');
         });
         it('should match params', () => {
             assert.deepEqual(results.params, [100]);
@@ -177,7 +177,7 @@ describe('Test 01 biblioteki PrepareSQL', () => {
     describe('test for prepareDelete', () => {
         const results = ps.prepareDelete('test', ['id = ?', 55]);
         it('should match sql', () => {
-            assert.equal(results.sql, 'DELETE FROM test WHERE (id = :1)');
+            assert.equal(results.sql, 'DELETE FROM test a WHERE (id = :1)');
         });
         it('should match params', () => {
             assert.deepEqual(results.params, [ 55 ] );

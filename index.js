@@ -111,7 +111,7 @@ const lib = {
         try {
             let sql, params = [],
                 fld  = (!fields ? '*' : fields.join(', ')),
-                fld2 = (!fields ? 't.*' : fields.join(', ')),
+                fld2 = (!fields ? 'a.*' : fields.join(', ')),
                 tc = (totalCount ? ', Count(1) OVER () AS cnt__' : ''),
                 where2,
                 orderBy = '',
@@ -139,15 +139,15 @@ const lib = {
 
             if(typeof limit === 'undefined') {
                 // simple SQL
-                sql = `SELECT ${fld2}${tc} FROM ${tbl} t ${where2} ${orderBy}`;
+                sql = `SELECT ${fld2}${tc} FROM ${tbl} a ${where2} ${orderBy}`;
             } else {
                 // prevent sql injection
-                if(limit != Number(limit)) {
+                if(limit !== Number(limit)) {
                     //noinspection ExceptionCaughtLocallyJS
                     throw new MyError('Parameter limit is not integer type!', { limit: limit });
                 }
                 if(page) {
-                    if(page != Number(page)) {
+                    if(page !== Number(page)) {
                         //noinspection ExceptionCaughtLocallyJS
                         throw new MyError('Parameter page is not integer type!', { page: page });
                     }
@@ -158,7 +158,7 @@ const lib = {
                 if (dbVer >= '12') {
                     let offset = (page - 1) * limit;
 
-                    sql = `SELECT ${fld2}${tc} FROM ${tbl} t ${where2} ${orderBy} OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+                    sql = `SELECT ${fld2}${tc} FROM ${tbl} a ${where2} ${orderBy} OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
                 } else {
                     // when missing order or missing ID in order array then add ROWID to order array (prevent floating records between pages)
                     // Attention! this might not work with some types of views (eg. Oracle dictionary views) at the moment I have no idea how to do this better
@@ -190,7 +190,7 @@ const lib = {
                         '                    FROM   (',
                         '                              SELECT ROWID              AS rid__',
                         (totalCount ? '                                     , Count(1) OVER () AS cnt__' : ''),
-                        '                              FROM   ' + tbl,
+                        '                              FROM   ' + tbl + ' a',
                         '                              ' + (wh.sql ? 'WHERE  ' + wh.sql : ''),
                         '                              ORDER  BY ' + ord.join(', '),
                         '                           ) i',
@@ -225,7 +225,7 @@ const lib = {
      */
     prepareUpdate: function(tbl, data, where) {
         try {
-            if(typeof data != 'object') {
+            if(typeof data !== 'object') {
                 //noinspection ExceptionCaughtLocallyJS
                 throw new Error('Second parameter must be an object eg. {field1: "value1", field2: "value2"}!');
             }
@@ -234,7 +234,7 @@ const lib = {
             let sql, i = 1;
 
             _.each(data, function (val, key) {
-                if(val !== null & typeof val === 'object' && typeof val.name != 'undefined') {
+                if(val !== null & typeof val === 'object' && typeof val.name !== 'undefined') {
                     upd.push(key + ' = ' + val.name);
                 } else {
                     upd.push(key + ' = :' + i);
@@ -248,7 +248,7 @@ const lib = {
                 throw new MyError('Missing fields for update!', {tbl:tbl, data:data, where:where});
             }
 
-            sql = 'UPDATE ' + tbl + ' SET ' + upd.join(', ');
+            sql = 'UPDATE ' + tbl + ' a SET ' + upd.join(', ');
 
             const wh = lib.prepareWhere(where, params);
             sql += (wh.sql ? ' WHERE ' + wh.sql : '');
@@ -276,7 +276,7 @@ const lib = {
             cnt = 1;
 
         try {
-            if (typeof data != 'object') {
+            if (typeof data !== 'object') {
                 //noinspection ExceptionCaughtLocallyJS
                 throw new MyError('Second parameter must be an object eg. {field1: "value1", field2: "value2"}!', {
                     data: data
@@ -321,7 +321,7 @@ const lib = {
             const params = [];
             let sql, wh;
 
-            sql = 'DELETE FROM ' + tbl;
+            sql = 'DELETE FROM ' + tbl + ' a';
 
             wh = lib.prepareWhere(where, params);
             sql += (wh.sql ? ' WHERE ' + wh.sql : '');
