@@ -142,16 +142,10 @@ const lib = {
                 sql = `SELECT ${fld2}${tc} FROM ${tbl} a ${where2} ${orderBy}`;
             } else {
                 // prevent sql injection
-                if(limit !== Number(limit)) {
-                    //noinspection ExceptionCaughtLocallyJS
-                    throw new MyError('Parameter limit is not integer type!', { limit: limit });
-                }
-                if(page) {
-                    if(page !== Number(page)) {
-                        //noinspection ExceptionCaughtLocallyJS
-                        throw new MyError('Parameter page is not integer type!', { page: page });
-                    }
-                } else {
+                page = Number(page);
+                limit = Number(limit);
+
+                if(!page) {
                     page = 1;
                 }
 
