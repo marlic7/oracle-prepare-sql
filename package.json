@@ -4,7 +4,9 @@
   "description": "Utility library to build SQL for Oracle database based on the parameter object.",
   "main": "index.js",
   "scripts": {
-    "test": "mocha ./tests/ --reporter=spec --timeout 150000"
+    "test": "mocha ./tests/ --reporter=spec --timeout 150000",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "engines": {
     "node": ">=6"
@@ -16,7 +18,9 @@
     "url": "https://github.com/marlic7/oracle-prepare-sql.git"
   },
   "dependencies": {
-    "lodash": "^4.17.4"
+    "lodash": "^4.17.4",
+    "snyk": "^1.319.0"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "snyk": true
 }
